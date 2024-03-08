@@ -4,12 +4,20 @@ import torch
 import random
 from tqdm.auto import tqdm
 import pandas as pd
+from rouge import Rouge
+from nltk.translate.bleu_score import sentence_bleu
+import re
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import wandb
+
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+torch.cuda.manual_seed_all(42)
+random.seed(42)
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, encoder_inputs, decoder_inputs, decoder_targets):
@@ -90,8 +98,9 @@ class Dataloader(pl.LightningDataModule):
         return torch.utils.data.DataLoader(self.test_dataset, batch_size=self.batch_size)
     def predict_dataloader(self):
         return torch.utils.data.DataLoader(self.predict_dataset, batch_size=self.batch_size)
-
     
+
+
 
 class Model(pl.LightningModule):
     def __init__(self, model_name, lr, tokenizer):
@@ -106,7 +115,55 @@ class Model(pl.LightningModule):
         self.lr = lr
 
         self.loss = torch.nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
+
+    def compute_rouge_score(self, logits, target) -> dict:
+        # logits : (batch_size, decoder_max_len, vocab_size)
+        # target : (batch_size, decoder_max_len)
+        rouge = Rouge()
         
+        pred_strings = []
+        target_strings = []
+
+        pred_ids = torch.argmax(logits, dim=-1) # (batch_size, decoder_max_len)
+        for batch in range(pred_ids.shape[0]):
+            pred_string = re.findall(r'^.*(?=<\/s>)',dataloader.tokenizer.decode(pred_ids[batch])) # truncate until </s>
+            if pred_string:
+                pred_string = pred_string[0].strip() if pred_string[0] else ' '
+            else:
+                pred_string = ' '
+             
+            target_string = self.tokenizer.decode(target[batch], skip_special_tokens=True)
+            pred_strings.append(pred_string)
+            target_strings.append(target_string)
+
+        
+        scores = rouge.get_scores(pred_strings, target_strings, avg=True)
+        # f1, precision, recall
+        # {'rouge-1': {'f': .., 'p': .., 'r': ..}, 
+        # 'rouge-2': {'f': .., 'p': .., 'r': ..}, 
+        # 'rouge-l': {'f': .., 'p': .., 'r': ..}}
+        
+        return scores 
+
+    def compute_bleu_score(self, logits, target) -> float:
+        # logits : (batch_size, decoder_max_len, vocab_size)
+        # target : (batch_size, decoder_max_len)
+        total_bleu_score = 0
+
+        pred_ids = torch.argmax(logits, dim=-1)
+        for batch in range(pred_ids.shape[0]):
+            pred_string = re.findall(r'^.*(?=<\/s>)',dataloader.tokenizer.decode(pred_ids[batch])) # truncate until </s>
+            if pred_string:
+                pred_string = pred_string[0].strip() if pred_string[0] else ' '
+            else:
+                pred_string = ' '
+            
+            target_string = self.tokenizer.decode(target[batch], skip_special_tokens=True).strip()
+            
+            total_bleu_score += sentence_bleu(target_string, pred_string, weights=(1, 0, 0, 0))
+
+        return total_bleu_score / pred_ids.shape[0]
+
     def forward(self, **x):
         '''
         x = {"encoder_input_ids" : (batch_size, encoder_max_len),
@@ -126,6 +183,20 @@ class Model(pl.LightningModule):
         loss = self.loss(outputs.logits.view(-1, outputs.logits.shape[-1]), batch['decoder_target_ids'].view(-1)) # (batch_size*decoder_max_len, vocab_size), (batch_size*decoder_max_len)
         self.log("train_loss", loss)
 
+        rouge_score = self.compute_rouge_score(outputs.logits, batch['decoder_target_ids'])
+        bleu_score = self.compute_bleu_score(outputs.logits, batch['decoder_target_ids'])
+
+        self.log_dict({"rouge-1-recall" : round(rouge_score['rouge-1']['r'],3),
+                       "rouge-1-precision" : round(rouge_score['rouge-1']['p'],3),
+                       "rouge-1-f1" : round(rouge_score['rouge-1']['f'],3)})
+        self.log_dict({"rouge-2-recall" : round(rouge_score['rouge-2']['r'],3),
+                        "rouge-2-precision" : round(rouge_score['rouge-2']['p'],3),
+                        "rouge-2-f1" : round(rouge_score['rouge-2']['f'],3)})
+        self.log_dict({"rouge-l-recall" : round(rouge_score['rouge-l']['r'],3),
+                        "rouge-l-precision" : round(rouge_score['rouge-l']['p'],3),
+                        "rouge-l-f1" : round(rouge_score['rouge-l']['f'],3)})
+        self.log_dict({"bleu_avg" : round(bleu_score,3)})
+        
         return loss
     
     def validation_step(self, batch, batch_idx):
@@ -134,8 +205,22 @@ class Model(pl.LightningModule):
         loss = self.loss(outputs.logits.view(-1, outputs.logits.shape[-1]), batch['decoder_input_ids'].view(-1))
         self.log("val_loss", loss)
 
-        return outputs.loss
-    
+        rouge_score = self.compute_rouge_score(outputs.logits, batch['decoder_target_ids'])
+        bleu_score = self.compute_bleu_score(outputs.logits, batch['decoder_target_ids'])
+
+        self.log_dict({"val_rouge-1-recall" : round(rouge_score['rouge-1']['r'],3),
+                       "val_rouge-1-precision" : round(rouge_score['rouge-1']['p'],3),
+                       "val_rouge-1-f1" : round(rouge_score['rouge-1']['f'],3)})
+        self.log_dict({"val_rouge-2-recall" : round(rouge_score['rouge-2']['r'],3),
+                        "val_rouge-2-precision" : round(rouge_score['rouge-2']['p'],3),
+                        "val_rouge-2-f1" : round(rouge_score['rouge-2']['f'],3)})
+        self.log_dict({"val_rouge-l-recall" : round(rouge_score['rouge-l']['r'],3),
+                        "val_rouge-l-precision" : round(rouge_score['rouge-l']['p'],3),
+                        "val_rouge-l-f1" : round(rouge_score['rouge-l']['f'],3)})
+        self.log_dict({"val_bleu_avg" : round(bleu_score,3)})
+
+        return loss
+
     def test_step(self, batch, batch_idx):
             
         outputs = self(**batch)
@@ -152,11 +237,14 @@ class Model(pl.LightningModule):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
 
+
+
+
 if __name__ == '__main__':
     config = {"model_name": 'gogamza/kobart-base-v2',
-              "model_detail" : "kobart-baeline",
+              "model_detail" : "kobart-baeline-rouge-bleu-by-val_bleu_avg",
 
-              "batch_size": 8, 
+              "batch_size": 16, 
               "shuffle":True,
               "learning_rate":1e-5,
               "epoch": 10,
@@ -176,17 +264,17 @@ if __name__ == '__main__':
     model = Model(config["model_name"], config["learning_rate"], dataloader.tokenizer)
 
     early_stop_custom_callback = EarlyStopping(
-        "val_loss", patience=3, verbose=True, mode="min"
+        "val_bleu_avg", patience=3, verbose=True, mode="max"
     )
 
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_loss",
+        monitor="val_bleu_avg",
         save_top_k=1,
         dirpath="./checkpoints/",
         filename=config["model_name"] + config["model_detail"], # model에 따라 변화
         save_weights_only=False,
         verbose=True,
-        mode="min",
+        mode="max",
     )
 
 
@@ -195,6 +283,7 @@ if __name__ == '__main__':
                          max_epochs=config["epoch"], 
                          callbacks=[checkpoint_callback,early_stop_custom_callback],
                          log_every_n_steps=1,
+                         resume_from_checkpoint='./checkpoints/gogamza/kobart-base-v2kobart-baeline-rouge-bleu-by-val_bleu_avg.ckpt',
                          logger=wandb_logger)
     
 
