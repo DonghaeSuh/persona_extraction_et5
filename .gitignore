@@ -8,6 +8,7 @@
 /et5-base
 /model
 /checkpoints
+/best_model
 
 ## log
 /lightning_logs
