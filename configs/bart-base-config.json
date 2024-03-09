@@ -1,0 +1,17 @@
+{"model_name": "gogamza/kobart-base-v2",
+"model_detail" : "kobart-baeline-rouge-bleu-by-val_bleu_avg",
+"resume_path" : "./checkpoints/gogamza/kobart-base-v2kobart-baeline-rouge-bleu-by-val_bleu_avg.ckpt",
+
+"wandb_entity" : "gypsi12",
+"wandb_project" : "persona_extraction",
+"wandb_run_name" : "kobart-baeline-rouge-bleu-by-val_bleu_avg",
+
+"batch_size": 16, 
+"shuffle": true,
+"learning_rate":1e-5,
+"epoch": 10,
+
+"train_path":"./data/train/train.csv", 
+"dev_path":"./data/val/validation.csv",
+"test_path":"./data/val/validation.csv", 
+"predict_path":"./data/val/validation_csv"}

@@ -7,6 +7,8 @@ import pandas as pd
 from rouge import Rouge
 from nltk.translate.bleu_score import sentence_bleu
 import re
+import json
+import os
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
@@ -14,11 +16,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import wandb
 
-torch.manual_seed(42)
-torch.cuda.manual_seed(42)
-torch.cuda.manual_seed_all(42)
-random.seed(42)
-
+############################################### Dataset ###############################################
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, encoder_inputs, decoder_inputs, decoder_targets):
         self.encoder_inputs = encoder_inputs
@@ -34,7 +32,7 @@ class Dataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.encoder_inputs['input_ids'])
     
-
+############################################### Dataloader ###############################################
 class Dataloader(pl.LightningDataModule):
     def __init__(self, model_name, batch_size, shuffle, train_path, val_path, test_path, predict_path):
         super().__init__()
@@ -100,8 +98,7 @@ class Dataloader(pl.LightningDataModule):
         return torch.utils.data.DataLoader(self.predict_dataset, batch_size=self.batch_size)
     
 
-
-
+############################################### Model ###############################################
 class Model(pl.LightningModule):
     def __init__(self, model_name, lr, tokenizer):
         super().__init__()
@@ -126,7 +123,7 @@ class Model(pl.LightningModule):
 
         pred_ids = torch.argmax(logits, dim=-1) # (batch_size, decoder_max_len)
         for batch in range(pred_ids.shape[0]):
-            pred_string = re.findall(r'^.*(?=<\/s>)',dataloader.tokenizer.decode(pred_ids[batch])) # truncate until </s>
+            pred_string = re.findall(r'^.*(?=<\/s>)',self.tokenizer.decode(pred_ids[batch])) # truncate until </s>
             if pred_string:
                 pred_string = pred_string[0].strip() if pred_string[0] else ' '
             else:
@@ -152,7 +149,7 @@ class Model(pl.LightningModule):
 
         pred_ids = torch.argmax(logits, dim=-1)
         for batch in range(pred_ids.shape[0]):
-            pred_string = re.findall(r'^.*(?=<\/s>)',dataloader.tokenizer.decode(pred_ids[batch])) # truncate until </s>
+            pred_string = re.findall(r'^.*(?=<\/s>)',self.tokenizer.decode(pred_ids[batch])) # truncate until </s>
             if pred_string:
                 pred_string = pred_string[0].strip() if pred_string[0] else ' '
             else:
@@ -224,9 +221,9 @@ class Model(pl.LightningModule):
     def test_step(self, batch, batch_idx):
             
         outputs = self(**batch)
-        # loss = self.loss(logits.view(-1, logits.shape[-1]), batch['decoder_input_ids'].view(-1))
+        loss = self.loss(outputs.logits.view(-1, outputs.logits.shape[-1]), batch['decoder_input_ids'].view(-1))
     
-        return outputs.loss
+        return loss
     
     def predict_step(self, batch, batch_idx):
 
@@ -237,32 +234,62 @@ class Model(pl.LightningModule):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
 
+############################################### Main ###############################################
+def main(config: dict):
+    
+    # seed 고정
+    SEED= 42
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed(SEED)
+    torch.cuda.manual_seed_all(SEED)
+    random.seed(SEED)
 
+    # parser
+    """
+    Args:
+    model_name : str : 모델 이름
+    model_detail : str : 모델 상세 정보
+    resume_path : str : resume path
 
+    batch_size : int : 배치 사이즈
+    shuffle : bool : shuffle 여부
+    learning_rate : float : learning rate
+    epoch : int : epoch
 
-if __name__ == '__main__':
-    config = {"model_name": 'gogamza/kobart-base-v2',
-              "model_detail" : "kobart-baeline-rouge-bleu-by-val_bleu_avg",
+    train_path : str : train 데이터 경로
+    dev_path : str : dev 데이터 경로
+    test_path : str : test 데이터 경로
+    predict_path : str : predict 데이터 경로
+    """
 
-              "batch_size": 16, 
-              "shuffle":True,
-              "learning_rate":1e-5,
-              "epoch": 10,
+    parser = argparse.ArgumentParser()
 
-              "train_path":'./data/train/train.csv', 
-              "dev_path":'./data/val/validation.csv',
-              "test_path":'./data/val/validation.csv', 
-              "predict_path":'./data/val/validation_csv',
-              }
+    parser.add_argument('--model_name', type=str, default='gogamza/kobart-base-v2')
+    parser.add_argument('--model_detail', type=str, default='kobart-baeline-rouge-bleu-by-val_bleu_avg')
+    parser.add_argument('--resume_path', type=str, default='')
 
-    wandb_logger = WandbLogger(project='persona_extraction', entity='gypsi12', name=config["model_name"] + config["model_detail"])
+    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--shuffle', type=bool, default=True)
+    parser.add_argument('--learning_rate', type=float, default=1e-5)
+    parser.add_argument('--epoch', type=int, default=10)
 
+    parser.add_argument('--train_path', type=str, default='./data/train/train.csv')
+    parser.add_argument('--dev_path', type=str, default='./data/val/validation.csv')
+    parser.add_argument('--test_path', type=str, default='./data/val/validation.csv')
+    parser.add_argument('--predict_path', type=str, default='./data/val/validation_csv')
+
+    wandb_logger = WandbLogger(project=config["wandb_project"], entity=config["wandb_entity"], name=config["wandb_run_name"])
+
+    
+
+    # dataloader, model
     dataloader = Dataloader(config["model_name"],config["batch_size"],
                             config["shuffle"], config["train_path"], config["dev_path"],
                             config["test_path"], config["predict_path"])
     
     model = Model(config["model_name"], config["learning_rate"], dataloader.tokenizer)
 
+    # callbacks
     early_stop_custom_callback = EarlyStopping(
         "val_bleu_avg", patience=3, verbose=True, mode="max"
     )
@@ -277,19 +304,32 @@ if __name__ == '__main__':
         mode="max",
     )
 
-
+    # trainer
     trainer = pl.Trainer(accelerator="gpu", 
                          devices=1, 
                          max_epochs=config["epoch"], 
                          callbacks=[checkpoint_callback,early_stop_custom_callback],
                          log_every_n_steps=1,
-                         resume_from_checkpoint='./checkpoints/gogamza/kobart-base-v2kobart-baeline-rouge-bleu-by-val_bleu_avg.ckpt',
                          logger=wandb_logger)
     
+    if config['resume_path']:
+        trainer.fit(model=model, datamodule=dataloader,ckpt_path=config['resume_path'])
+    else:
+        trainer.fit(model=model, datamodule=dataloader)
 
-    trainer.fit(model=model, datamodule=dataloader)
 
+    # 최고 성능 모델 불러오기 및 저장
     model = Model.load_from_checkpoint(checkpoint_callback.best_model_path, model_name=config["model_name"], lr=config["learning_rate"], tokenizer=dataloader.tokenizer)
 
-    # 저장
+    os.makedirs('./best_model', exist_ok=True)
     torch.save(model, f'./best_model/{config["model_name"]}_{config["model_detail"]}.pt')
+
+
+if __name__ == '__main__':
+
+    selected_config = 'bart-base-config.json'
+
+    with open(f'./configs/{selected_config}', 'r') as f:
+        config = json.load(f)
+
+    main(config=config)

@@ -6,3 +6,9 @@
 
 ## model
 /et5-base
+/model
+/checkpoints
+
+## log
+/lightning_logs
+/wandb
