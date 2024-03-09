@@ -3,7 +3,7 @@
 ## 실행 방법
 
 ### 1. requirements
-linux-64 에서
+cuda version : 11.4, linux-64 에서
 ```
 # $ conda create --name [가상환경이름] --file requirements.txt
 ```
