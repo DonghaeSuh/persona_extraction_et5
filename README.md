@@ -1,5 +1,7 @@
 # persona_extraction_et5
 
+https://huggingface.co/NLPBada/kobart-chat-persona-extraction
+
 ## 실행 방법
 
 ### 1. requirements
