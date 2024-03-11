@@ -278,6 +278,8 @@ def main(config: dict):
     parser.add_argument('--test_path', type=str, default='./data/val/validation.csv')
     parser.add_argument('--predict_path', type=str, default='./data/val/validation_csv')
 
+    args = parser.parse_args()
+
     wandb_logger = WandbLogger(project=config["wandb_project"], entity=config["wandb_entity"], name=config["wandb_run_name"])
 
     
@@ -322,12 +324,12 @@ def main(config: dict):
     model = Model.load_from_checkpoint(checkpoint_callback.best_model_path, model_name=config["model_name"], lr=config["learning_rate"], tokenizer=dataloader.tokenizer)
 
     os.makedirs('./best_model', exist_ok=True)
-    torch.save(model, f'./best_model/{config["model_name"]}_{config["model_detail"]}.pt')
+    torch.save(model, f'./best_model/{config["model_detail"]}.pt')
 
 
 if __name__ == '__main__':
 
-    selected_config = 'bart-base-config.json'
+    selected_config = 'bart-base-banmal-config.json'
 
     with open(f'./configs/{selected_config}', 'r') as f:
         config = json.load(f)
