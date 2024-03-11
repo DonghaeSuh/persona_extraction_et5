@@ -34,7 +34,7 @@ cuda version : 11.4, linux-64 에서
 
 ### 3. 학습
 ```
-python train.py
+python kobart_train.py
 ```
 
 ### 4. 학습 결과
