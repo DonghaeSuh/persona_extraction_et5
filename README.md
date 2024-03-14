@@ -1,5 +1,8 @@
 # persona_extraction_model
 
+## 세부 학습 방식
+- [NLP 바다 블로그](https://blog.naver.com/gypsi12/223378404085)에 정리
+
 ## Huggingface 공개
 ### Model
 - [한국어 존댓말 사용자 발화에서 사용자의 페르소나 추출](https://huggingface.co/NLPBada/kobart-chat-persona-extraction)
