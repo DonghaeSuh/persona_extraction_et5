@@ -235,61 +235,42 @@ class Model(pl.LightningModule):
         return optimizer
 
 ############################################### Main ###############################################
-def main(config: dict):
+def main():
     
-    # seed 고정
+    ## seed fix ##
     SEED= 42
     torch.manual_seed(SEED)
     torch.cuda.manual_seed(SEED)
     torch.cuda.manual_seed_all(SEED)
     random.seed(SEED)
 
-    # parser
-    """
-    Args:
-    model_name : str : 모델 이름
-    model_detail : str : 모델 상세 정보
-    resume_path : str : resume path
-
-    batch_size : int : 배치 사이즈
-    shuffle : bool : shuffle 여부
-    learning_rate : float : learning rate
-    epoch : int : epoch
-
-    train_path : str : train 데이터 경로
-    dev_path : str : dev 데이터 경로
-    test_path : str : test 데이터 경로
-    predict_path : str : predict 데이터 경로
-    """
-
+    ## parser ##
     parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, default='et5/et5-banmal-by-rougel-f1-config.json')
+    args = parser.parse_args()
 
-    parser.add_argument('--model_name', type=str, default='gogamza/kobart-base-v2')
-    parser.add_argument('--model_detail', type=str, default='kobart-baeline-rouge-bleu-by-val_bleu_avg')
-    parser.add_argument('--resume_path', type=str, default='')
+    ## config ##
+    selected_config = args.config
 
-    parser.add_argument('--batch_size', type=int, default=16)
-    parser.add_argument('--shuffle', type=bool, default=True)
-    parser.add_argument('--learning_rate', type=float, default=1e-5)
-    parser.add_argument('--epoch', type=int, default=10)
+    with open(f'./configs/{selected_config}', 'r') as f:
+        config = json.load(f)
 
-    parser.add_argument('--train_path', type=str, default='./data/train/train.csv')
-    parser.add_argument('--dev_path', type=str, default='./data/val/validation.csv')
-    parser.add_argument('--test_path', type=str, default='./data/val/validation.csv')
-    parser.add_argument('--predict_path', type=str, default='./data/val/validation_csv')
+    print('*****************************************************')
+    print(f" config: '{args.config}' is loaded")
+    print('*****************************************************')
 
+    ## wandb logger ##
     wandb_logger = WandbLogger(project=config["wandb_project"], entity=config["wandb_entity"], name=config["wandb_run_name"])
 
-    
-
-    # dataloader, model
+    ## dataloader ##
     dataloader = Dataloader(config["model_name"],config["batch_size"],
                             config["shuffle"], config["train_path"], config["dev_path"],
                             config["test_path"], config["predict_path"])
     
+    ## model ##
     model = Model(config["model_name"], config["learning_rate"], dataloader.tokenizer)
 
-    # callbacks
+    ## callbacks ##
     early_stop_custom_callback = EarlyStopping(
         config['metric'], patience=3, verbose=True, mode="max"
     )
@@ -304,7 +285,7 @@ def main(config: dict):
         mode=config['metric_mode'],
     )
 
-    # trainer
+    ## trainer ##
     trainer = pl.Trainer(accelerator="gpu", 
                          devices=1, 
                          max_epochs=config["epoch"], 
@@ -312,13 +293,14 @@ def main(config: dict):
                          log_every_n_steps=1,
                          logger=wandb_logger)
     
+    ## resume ##
     if config['resume_path']:
         trainer.fit(model=model, datamodule=dataloader,ckpt_path=config['resume_path'])
     else:
         trainer.fit(model=model, datamodule=dataloader)
 
 
-    # 최고 성능 모델 불러오기 및 저장
+    ## best_model ##
     model = Model.load_from_checkpoint(checkpoint_callback.best_model_path, model_name=config["model_name"], lr=config["learning_rate"], tokenizer=dataloader.tokenizer)
 
     os.makedirs('./best_model', exist_ok=True)
@@ -326,10 +308,4 @@ def main(config: dict):
 
 
 if __name__ == '__main__':
-
-    selected_config = 'et5-tag-banmal-by-rougel-f1-config.json'
-
-    with open(f'./configs/{selected_config}', 'r') as f:
-        config = json.load(f)
-
-    main(config=config)
+    main()
