@@ -7,7 +7,7 @@ https://huggingface.co/NLPBada/kobart-chat-persona-extraction
 ### 1. requirements
 cuda version : 11.4, linux-64 에서
 ```
-# $ conda create --name [가상환경이름] --file requirements.txt
+# $ conda env create --name [가상환경이름] -f requirements.yaml
 ```
 
 ### 2. Config 설정
@@ -16,6 +16,9 @@ cuda version : 11.4, linux-64 에서
   {"model_name": "gogamza/kobart-base-v2", # 모델 이름
   "model_detail" : "kobart-baeline-rouge-bleu-by-val_bleu_avg", # 모델 세부 설명
   "resume_path" : "./checkpoints/gogamza/kobart-base-v2kobart-baeline-rouge-bleu-by-val_bleu_avg.ckpt", # 만약 학습을 이어서 하고 싶을 경우 checkpoint 파일 경로
+  
+  "metric": "val_rouge-l-f1", # 평가지표
+  "metric_mode": "max", # 평가지표 기준
 
   "wandb_entity" : "gypsi12", # wandb entity이름
   "wandb_project" : "persona_extraction", # wandb 프로젝트 이름
