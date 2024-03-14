@@ -5,7 +5,7 @@
 - [한국어 존댓말 사용자 발화에서 사용자의 페르소나 추출](https://huggingface.co/NLPBada/kobart-chat-persona-extraction)
 - [한국어 반말 사용자 발화에서 사용자의 페르소나 추출](https://huggingface.co/NLPBada/kobart-chat-persona-extraction-v2)
 ### Dataset
-- [(한국어 반말 사용자 발화-사용자 페르소나) 쌍 데이터 구축]()
+- [(한국어 반말 사용자 발화-사용자 페르소나) 쌍 데이터 구축](https://huggingface.co/datasets/NLPBada/korean-persona-chat-dataset/tree/main)
 
 <br/>
 
