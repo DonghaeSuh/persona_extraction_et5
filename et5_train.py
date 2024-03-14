@@ -57,8 +57,8 @@ class Dataloader(pl.LightningDataModule):
 
     def preprocessing(self,dataframe):
         # session_dialog_add_special_tokens
-        dataframe['session_dialog'] = dataframe['session_dialog'].apply(lambda x: '[BOS] ' + ' [SEP] '.join(eval(x))+ ' </s>') # ['A','B','C'] -> '[BOS] A [SEP] B [SEP] C [SEP] </s>'
-        dataframe['session_persona'] = dataframe['session_persona'].apply(lambda x: '<s> '+','.join(eval(x)).replace('.','')+'.'+' </s>') # ['A.','B.','C.'] -> 'A,B,C.'
+        dataframe['session_dialog'] = dataframe['session_dialog'].apply(lambda x: '[BOS] ' + ' [SEP] '.join(eval(x))) # ['A','B','C'] -> '[BOS] A [SEP] B [SEP] C [SEP] </s>'
+        dataframe['session_persona'] = dataframe['session_persona'].apply(lambda x: '<s> '+','.join(eval(x)).replace('.','')+'.') # ['A.','B.','C.'] -> '<s> A,B,C. </s>'
         dataframe['session_persona_target'] =  dataframe['session_persona'].apply(lambda x: x[4:]) # <s> 제외
 
         # tokenizing
@@ -104,7 +104,7 @@ class Model(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
-        self.model = transformers.BartForConditionalGeneration.from_pretrained(model_name, cache_dir='./model')
+        self.model = transformers.T5ForConditionalGeneration.from_pretrained(model_name, cache_dir='./model')
         self.model.config.decoder_start_token_id = tokenizer.bos_token_id
         self.model.resize_token_embeddings(len(tokenizer))
 
@@ -278,8 +278,6 @@ def main(config: dict):
     parser.add_argument('--test_path', type=str, default='./data/val/validation.csv')
     parser.add_argument('--predict_path', type=str, default='./data/val/validation_csv')
 
-    args = parser.parse_args()
-
     wandb_logger = WandbLogger(project=config["wandb_project"], entity=config["wandb_entity"], name=config["wandb_run_name"])
 
     
@@ -297,10 +295,10 @@ def main(config: dict):
     )
 
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_bleu_avg",
+        monitor=config['metric'],
         save_top_k=1,
         dirpath="./checkpoints/",
-        filename=config["model_name"] + config["model_detail"], # model에 따라 변화
+        filename=config["model_detail"], # model에 따라 변화
         save_weights_only=False,
         verbose=True,
         mode=config['metric_mode'],
@@ -329,7 +327,7 @@ def main(config: dict):
 
 if __name__ == '__main__':
 
-    selected_config = 'bart-base-banmal-config.json'
+    selected_config = 'et5-tag-banmal-by-rougel-f1-config.json'
 
     with open(f'./configs/{selected_config}', 'r') as f:
         config = json.load(f)
