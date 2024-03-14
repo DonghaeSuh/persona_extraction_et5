@@ -1,6 +1,13 @@
-# persona_extraction_et5
+# persona_extraction_model
 
-https://huggingface.co/NLPBada/kobart-chat-persona-extraction
+## Huggingface 공개
+### Model
+- [한국어 존댓말 사용자 발화에서 사용자의 페르소나 추출](https://huggingface.co/NLPBada/kobart-chat-persona-extraction)
+- [한국어 반말 사용자 발화에서 사용자의 페르소나 추출](https://huggingface.co/NLPBada/kobart-chat-persona-extraction-v2)
+### Dataset
+- [(한국어 반말 사용자 발화-사용자 페르소나) 쌍 데이터 구축]()
+
+<br/>
 
 ## 실행 방법
 
@@ -37,7 +44,7 @@ cuda version : 11.4, linux-64 에서
 
 ### 3. 학습
 ```
-python kobart_train.py
+python [모델]_train.py --config "[모델]/[모델 config.json]"
 ```
 
 ### 4. 학습 결과
