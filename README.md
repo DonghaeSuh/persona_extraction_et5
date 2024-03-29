@@ -14,13 +14,21 @@ model = AutoModel.from_pretrained("NLPBada/kobart-chat-persona-extraction-v2")
 tokenizer = AutoTokenizer.from_pretrained("NLPBada/kobart-chat-persona-extraction-v2")
 ```
 
+
 ## Finetuning
+- **Encoder-Decoder Transformer** 구조의 모델의 경우다음 두 모델을 fine-tuning
+  - [KoBART](https://huggingface.co/gogamza/kobart-base-v2)
+  - [ET5](https://aiopen.etri.re.kr/et5Model)
 
-|                         | Hardware | Max len |   LR | Batch | Train Step |
-| :---------------------- | -------: | ------: | ---: | ----: | ---------: |
-| **Encoder** | Tesla V100 32G   |    500 | 1e-5 |    16 |         1M |
-| **Decoder** | Tesla V100 32G   |    200 | 1e-5 |    16 |         1M |
 
+    |                         | Hardware | Max len |   LR | Batch | Train Step |
+    | :---------------------- | -------: | ------: | ---: | ----: | ---------: |
+    | **Encoder** | Tesla V100 32G   |    500 | 1e-5 |    16 |         1M |
+    | **Decoder** | Tesla V100 32G   |    200 | 1e-5 |    16 |         1M |
+
+- **LLM**의 경우 QLoRA 4-bit quantization 방식으로 다음 두 모델을 fine-tuning
+  - [EleutherAI/polyglot-ko-1.3b](https://huggingface.co/EleutherAI/polyglot-ko-1.3b)
+  - [beomi/OPEN-SOLAR-KO-10.7B](https://huggingface.co/beomi/OPEN-SOLAR-KO-10.7B)
 
 ## Evaluation Result
 
