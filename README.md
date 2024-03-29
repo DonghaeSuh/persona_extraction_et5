@@ -16,7 +16,7 @@ tokenizer = AutoTokenizer.from_pretrained("NLPBada/kobart-chat-persona-extractio
 
 
 ## Finetuning
-- **Encoder-Decoder Transformer** 구조의 모델의 경우다음 두 모델을 fine-tuning
+- **Encoder-Decoder Transformer** 구조의 모델의 경우, 다음 두 모델을 fine-tuning 할 수 있습니다.
   - [KoBART](https://huggingface.co/gogamza/kobart-base-v2)
   - [ET5](https://aiopen.etri.re.kr/et5Model)
 
@@ -26,7 +26,7 @@ tokenizer = AutoTokenizer.from_pretrained("NLPBada/kobart-chat-persona-extractio
     | **Encoder** | Tesla V100 32G   |    500 | 1e-5 |    16 |         1M |
     | **Decoder** | Tesla V100 32G   |    200 | 1e-5 |    16 |         1M |
 
-- **LLM**의 경우 QLoRA 4-bit quantization 방식으로 다음 두 모델을 fine-tuning
+- **LLM**의 경우 QLoRA 4-bit quantization 방식으로 다음 두 모델을 fine-tuning 할 수 있습니다.
   - [EleutherAI/polyglot-ko-1.3b](https://huggingface.co/EleutherAI/polyglot-ko-1.3b)
   - [beomi/OPEN-SOLAR-KO-10.7B](https://huggingface.co/beomi/OPEN-SOLAR-KO-10.7B)
 
